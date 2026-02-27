@@ -1,0 +1,2188 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIVV Showcase (0.7.0)</title>
+    
+    <!-- 1. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: {
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'fade-in': 'fadeIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        slideUp: { '0%': { transform: 'translateY(10px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
+                        fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- 2. Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- 3. Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+    <!-- 4. Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        
+        /* Mobile Sidebar Transitions */
+        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .mobile-closed { transform: translateX(-100%); }
+        .mobile-open { transform: translateX(0); }
+        
+        /* Desktop Sidebar Transitions */
+        .sidebar-expanded { width: 20rem; } /* w-80 */
+        .sidebar-collapsed { width: 5rem; } /* w-20 */
+        #sidebar.desktop-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* Stats Grid */
+        #stats-grid { transition: opacity 0.2s; }
+        .sidebar-collapsed #stats-grid { display: none; }
+    </style>
+</head>
+<body class="bg-stone-200 text-stone-900 dark:bg-black dark:text-stone-100 h-screen w-screen flex overflow-hidden transition-colors duration-200">
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-container" class="fixed top-6 left-1/2 -translate-x-1/2 z-[200] pointer-events-none transition-all duration-300 opacity-0 transform -translate-y-4">
+        <div class="bg-stone-900/95 dark:bg-stone-100/95 text-stone-100 dark:text-stone-900 px-6 py-3 rounded-full shadow-2xl border border-stone-700/50 dark:border-stone-200/50 backdrop-blur-md text-sm font-bold tracking-wide flex items-center gap-3">
+            <i data-lucide="info" width="18" class="text-orange-500"></i>
+            <span id="toast-message">Notification</span>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 h-full bg-stone-100 dark:bg-[#111] border-r border-stone-300 dark:border-stone-800/50 flex flex-col md:relative md:translate-x-0 shadow-2xl md:shadow-none group/sidebar desktop-transition">
+        
+        <!-- Handle Button (Desktop Only) -->
+        <button onclick="toggleDesktopSidebar()" id="sidebar-handle" class="hidden md:flex absolute -right-3 top-24 h-16 w-3 bg-white dark:bg-stone-800 border-y border-r border-l-0 border-stone-300 dark:border-stone-700 rounded-r-lg items-center justify-center text-stone-500 dark:text-stone-400 hover:text-orange-500 shadow-sm z-50 transition-colors cursor-pointer outline-none">
+            <i data-lucide="chevron-left" width="12" id="icon-sidebar-handle"></i>
+        </button>
+
+        <!-- Sidebar Header -->
+        <div class="p-5 flex flex-col gap-4 overflow-hidden shrink-0">
+            <div id="sidebar-header-expanded" class="flex items-center gap-3 whitespace-nowrap">
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight text-stone-900 dark:text-[#E33823] leading-none" id="txt-app-title">VIVV</h1>
+                    <p class="text-[10px] font-medium text-stone-500 dark:text-stone-400 tracking-widest mt-1">Showcase (0.7.0)</p>
+                </div>
+            </div>
+            <div id="sidebar-header-collapsed" class="hidden flex-col items-center gap-6 mt-2">
+                <div class="font-black text-lg text-stone-800 dark:text-[#E33823] tracking-widest leading-none">IV</div>
+                <button onclick="handleStartNew()" class="w-10 h-10 rounded-full bg-stone-200 hover:bg-orange-100 text-stone-600 hover:text-orange-600 dark:bg-stone-800 dark:hover:bg-orange-900/30 dark:text-stone-400 dark:hover:text-orange-400 flex items-center justify-center transition-colors"><i data-lucide="plus" width="20"></i></button>
+            </div>
+            
+            <!-- Guide Button (Restored) -->
+            <button onclick="openWelcome()" class="w-full h-9 flex items-center justify-center gap-2 rounded-xl font-bold text-xs text-stone-600 bg-stone-200 hover:bg-stone-300 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700 transition-all active:scale-95 whitespace-nowrap overflow-hidden">
+                 <i data-lucide="help-circle" width="14" class="shrink-0"></i> <span>Guide</span>
+            </button>
+            
+            <button id="btn-new-prompt" onclick="handleStartNew()" class="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-bold text-sm text-white bg-stone-900 hover:bg-stone-800 dark:bg-white dark:text-black dark:hover:bg-stone-200 transition-all shadow-lg active:scale-95 whitespace-nowrap overflow-hidden">
+                <i data-lucide="plus" width="18" class="shrink-0"></i> <span id="label-new-prompt">New Prompt</span>
+            </button>
+        </div>
+
+        <!-- Search & Filter -->
+        <div id="sidebar-filters" class="px-5 pb-3 flex flex-col gap-3 shrink-0">
+            <div class="relative group">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 w-4 h-4"></i>
+                <input type="text" id="input-search" oninput="handleSearch(this.value)" placeholder="Search prompts" class="w-full pl-10 pr-4 h-10 text-sm rounded-xl bg-stone-200 dark:bg-stone-900 border-transparent focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all dark:focus:bg-black dark:text-white outline-none placeholder-stone-500">
+            </div>
+            <div class="flex p-1 bg-stone-200 dark:bg-stone-900 rounded-lg">
+                <button onclick="setFilter('all')" id="filter-all" class="flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-white">All</button>
+                <button onclick="setFilter('free')" id="filter-free" class="flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-600">Free</button>
+                <button onclick="setFilter('img')" id="filter-img" class="flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-600">Img</button>
+                <button onclick="setFilter('vid')" id="filter-vid" class="flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-600">Vid</button>
+            </div>
+        </div>
+
+        <!-- Prompt List -->
+        <div id="prompt-list" class="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-thin">
+            <div class="p-8 text-center text-xs text-stone-500 dark:text-stone-400">Loading vault...</div>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="p-4 border-t border-stone-300 dark:border-stone-800/50 bg-stone-200/50 dark:bg-black/20 backdrop-blur-sm flex flex-col gap-3 transition-all shrink-0">
+            <!-- LIVE STATISTICS -->
+            <div id="stats-grid" class="flex justify-between items-center gap-1 mb-1 px-1 select-none">
+                <div class="flex flex-col items-center" title="Total Visits">
+                    <span id="stat-visit" class="text-[10px] font-black text-stone-700 dark:text-stone-300">0</span>
+                    <span class="text-[8px] font-bold uppercase text-stone-400 tracking-wider">Visit</span>
+                </div>
+                <div class="w-px h-4 bg-stone-300 dark:bg-stone-800"></div>
+                <div class="flex flex-col items-center" title="Unique Users">
+                    <span id="stat-unique" class="text-[10px] font-black text-stone-700 dark:text-stone-300">0</span>
+                    <span class="text-[8px] font-bold uppercase text-stone-400 tracking-wider">Uniq</span>
+                </div>
+                <div class="w-px h-4 bg-stone-300 dark:bg-stone-800"></div>
+                <div class="flex flex-col items-center" title="Total Copies">
+                    <span id="stat-copy" class="text-[10px] font-black text-stone-700 dark:text-stone-300">0</span>
+                    <span class="text-[8px] font-bold uppercase text-stone-400 tracking-wider">Copy</span>
+                </div>
+                <div class="w-px h-4 bg-stone-300 dark:bg-stone-800"></div>
+                <div class="flex flex-col items-center" title="Total Saves">
+                    <span id="stat-save" class="text-[10px] font-black text-stone-700 dark:text-stone-300">0</span>
+                    <span class="text-[8px] font-bold uppercase text-stone-400 tracking-wider">Save</span>
+                </div>
+            </div>
+
+            <div id="footer-actions" class="flex gap-2 justify-center transition-all overflow-hidden">
+                <button onclick="openStorageModal('export')" class="footer-btn h-10 w-10 flex items-center justify-center rounded-lg bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-400 dark:hover:bg-stone-700 flex-shrink-0" title="Backup"><i data-lucide="download" width="16"></i></button>
+                <input type="file" id="file-upload" class="hidden" onchange="importData(this)" accept=".json">
+                
+                <button onclick="openStorageModal('import')" class="footer-btn h-10 w-10 flex items-center justify-center rounded-lg bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-400 dark:hover:bg-stone-700 flex-shrink-0" title="Restore"><i data-lucide="upload" width="16"></i></button>
+                <button onclick="toggleLang()" id="btn-lang" class="footer-btn h-10 flex-1 flex items-center justify-center rounded-lg bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-bold text-xs uppercase hover:bg-stone-400 dark:hover:bg-stone-700 flex-shrink-0 min-w-[40px]">EN</button>
+                <button onclick="openHotkeysModal()" class="footer-btn h-10 w-10 flex items-center justify-center rounded-lg bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-400 dark:hover:bg-stone-700 hover:text-orange-500 flex-shrink-0" title="Shortcuts"><i data-lucide="keyboard" width="16"></i></button>
+                <button onclick="toggleTheme()" class="footer-btn h-10 w-10 flex items-center justify-center rounded-lg bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-orange-500 flex-shrink-0"><i data-lucide="sun" width="16" class="dark:hidden"></i><i data-lucide="moon" width="16" class="hidden dark:block"></i></button>
+            </div>
+            
+            <!-- Updated Credit Section (LinkedIn) -->
+            <div id="footer-credit" class="flex flex-col items-center gap-1 overflow-hidden mt-1">
+                 <div class="flex items-center gap-2 justify-center w-full">
+                    <span class="text-[10px] font-bold text-stone-500 dark:text-stone-400">By Varakorn T.</span>
+                    <span id="db-status" class="text-[8px] text-orange-500 hidden">● Connecting...</span>
+                 </div>
+                 <a href="https://www.linkedin.com/in/varakornt/" target="_blank" rel="noreferrer" class="flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-[10px] font-bold bg-white/50 dark:bg-stone-800/50 px-2 py-1 rounded-full transition-colors w-full justify-center">
+                      <i data-lucide="linkedin" width="10" height="10" class="fill-current"></i> linkedin.com/in/varakornt
+                 </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Overlay Backdrop -->
+    <div id="mobile-backdrop" onclick="closeMobileSidebar()" class="md:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm hidden transition-opacity"></div>
+
+    <!-- MAIN EDITOR -->
+    <div id="main-editor" class="flex-1 flex flex-col h-full w-full overflow-hidden relative bg-stone-200/50 dark:bg-black transition-all">
+        
+        <!-- Empty State (Updated Text) -->
+        <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-stone-400 dark:text-stone-800 select-none relative hidden">
+             <div class="absolute inset-0 z-0 opacity-20 dark:opacity-30 pointer-events-none">
+               <img src="https://lh3.googleusercontent.com/d/1_tqfK8lq6T8k_w_yv5v-k_y5v-k_y5v" class="w-full h-full object-cover grayscale opacity-50 mix-blend-overlay" alt="" onerror="this.style.display='none'">
+               <div style="background-image: url('https://lh3.googleusercontent.com/d/1_tqfK8lq6T8k_w_yv5v-k_y5v-k_y5v'); background-size: cover; background-position: center; position: absolute; inset: 0; opacity: 0.1;"></div>
+            </div>
+            <!-- Removed Logo Placeholder -->
+            <p class="font-medium text-lg z-10">Click New Prompt to start crafting your prompt.</p>
+        </div>
+
+        <!-- Editor Content -->
+        <div id="editor-content" class="flex flex-col h-full w-full hidden">
+            <!-- Header -->
+            <header class="h-16 px-4 md:px-6 flex justify-between items-center bg-stone-100/80 dark:bg-[#111]/80 backdrop-blur-md border-b border-stone-300 dark:border-stone-800 z-20 sticky top-0 w-full transition-colors">
+                <div class="flex items-center gap-4 flex-1 overflow-hidden">
+                    <!-- Mobile Sidebar Button -->
+                    <button onclick="openMobileSidebar()" class="md:hidden p-2 text-stone-500" title="Open Menu">
+                        <i data-lucide="menu" width="24"></i>
+                    </button>
+                    <!-- Back Button (Mobile) -->
+                    <button onclick="goBackToList()" class="md:hidden p-2 text-stone-500 hidden" id="btn-mobile-back"><i data-lucide="arrow-left" width="24"></i></button>
+                    <!-- Close Button (Desktop) -->
+                    <button onclick="handleDiscardOrClose()" class="p-2 text-stone-500 hover:text-red-500 transition-colors hidden md:block" title="Close / Discard">
+                        <i data-lucide="x" width="24"></i>
+                    </button>
+                    
+                    <div class="flex-1 flex flex-col justify-center overflow-hidden">
+                        <input type="text" id="input-title" oninput="markDirty()" onkeydown="handleTitleKey(event)" class="text-lg md:text-xl font-bold bg-transparent border-none focus:ring-0 p-0 w-full truncate text-stone-900 placeholder-stone-400 dark:text-stone-100 dark:placeholder-stone-700 outline-none" placeholder="Project Name">
+                        <div class="flex items-center gap-2 text-[10px] font-medium text-stone-400 uppercase tracking-wider">
+                            <span id="status-indicator">Saved</span>
+                            <span id="version-badge" class="hidden px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-500">v1</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="handleDelete()" class="p-2.5 rounded-xl text-stone-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"><i data-lucide="trash-2" width="20"></i></button>
+                </div>
+            </header>
+
+            <!-- Scrollable Area -->
+            <div class="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 scroll-smooth w-full">
+                <div class="max-w-4xl mx-auto space-y-6 pb-20">
+                    
+                    <!-- Control Deck -->
+                    <div class="bg-stone-50 dark:bg-[#161616] border border-stone-300 dark:border-stone-800 rounded-2xl p-1 shadow-sm transition-colors">
+                        <div class="flex flex-wrap gap-1">
+                            <!-- Model Select -->
+                            <div id="model-select-container" class="relative flex-grow min-w-[200px] bg-stone-200 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 flex items-center px-1 h-12 z-20">
+                                <button onclick="toggleModelSelector()" class="w-full h-full flex items-center justify-between px-3 text-sm font-semibold text-stone-700 dark:text-stone-300">
+                                     <span class="flex items-center gap-2" id="model-display">
+                                        <i data-lucide="zap" width="16" class="text-orange-500"></i> <span id="current-model-text">Grok</span>
+                                    </span>
+                                    <i data-lucide="chevron-down" width="14" class="text-stone-400"></i>
+                                </button>
+                                <div id="model-dropdown" class="hidden absolute top-full left-0 w-full mt-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl shadow-xl z-50 overflow-hidden py-1 max-h-60 overflow-y-auto">
+                                    <!-- Populated by JS -->
+                                </div>
+                                <select id="select-model" class="hidden"><option value="Grok"></option></select> 
+                            </div>
+
+                            <!-- Launch Button -->
+                            <button onclick="handleOpenExternal()" id="btn-launch" title="Launch Model" class="h-12 w-12 flex items-center justify-center rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-200 dark:bg-stone-900 text-stone-500 dark:text-stone-400 hover:text-orange-500 dark:hover:text-orange-400 transition-colors">
+                                <i data-lucide="external-link" width="18"></i>
+                            </button>
+
+                            <!-- Mode Select -->
+                            <div id="mode-select-container" class="relative flex-grow min-w-[140px] bg-stone-200 dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-800 flex items-center px-1 h-12 z-20">
+                                <button onclick="toggleModeSelector()" class="w-full h-full flex items-center justify-between px-3 text-sm font-semibold text-stone-700 dark:text-stone-300">
+                                    <span class="flex items-center gap-2" id="mode-display">
+                                        <i data-lucide="type" width="16" class="text-stone-500"></i> Freestyle
+                                    </span>
+                                    <i data-lucide="chevron-down" width="14" class="text-stone-400"></i>
+                                </button>
+                                <!-- Mode Dropdown -->
+                                <div id="mode-dropdown" class="hidden absolute top-full left-0 w-full mt-2 bg-stone-50 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                                    <button onclick="setAppMode('free')" class="w-full text-left px-4 py-3 text-sm hover:bg-stone-200 dark:hover:bg-stone-700 flex items-center gap-3 text-stone-700 dark:text-stone-200"><i data-lucide="type" width="16"></i> Freestyle</button>
+                                    <button onclick="setAppMode('img')" class="w-full text-left px-4 py-3 text-sm hover:bg-stone-200 dark:hover:bg-stone-700 flex items-center gap-3 text-stone-700 dark:text-stone-200"><i data-lucide="image" width="16"></i> Image Gen</button>
+                                    <button onclick="setAppMode('vid')" class="w-full text-left px-4 py-3 text-sm hover:bg-stone-200 dark:hover:bg-stone-700 flex items-center gap-3 text-stone-700 dark:text-stone-200"><i data-lucide="video" width="16"></i> Video Gen</button>
+                                </div>
+                            </div>
+
+                            <!-- Negative Toggle -->
+                            <button onclick="toggleNegative()" id="btn-neg-toggle" class="h-12 px-4 rounded-xl border font-semibold text-sm transition-all flex items-center gap-2 bg-stone-200 border-stone-200 text-stone-500 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-400">
+                                <i data-lucide="toggle-left" width="18" id="icon-neg-toggle"></i> Neg
+                            </button>
+                        </div>
+
+                        <!-- Sub-mode Selector -->
+                        <div id="submode-selector" class="hidden mt-1 flex items-center gap-2 bg-stone-200 dark:bg-stone-900/50 p-1 rounded-xl">
+                            <!-- Injected by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Parameter Form -->
+                    <div id="parameter-form" class="hidden space-y-4 animate-slide-up">
+                        <div id="form-grid" class="grid gap-4 md:grid-cols-2">
+                            <!-- Fields injected by JS -->
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="handleCombine()" class="flex-[2] h-12 bg-stone-900 hover:bg-black dark:bg-white dark:hover:bg-stone-200 text-white dark:text-black rounded-xl font-bold text-sm shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2" id="btn-combine"><i data-lucide="merge" width="18"></i> Combine</button>
+                            <button onclick="toggleAutoComma()" id="btn-comma" class="w-12 h-12 flex items-center justify-center rounded-xl border-2 font-black text-xl transition-all border-emerald-500 text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20">,</button>
+                            <button onclick="handleScramble()" class="flex-1 h-12 bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-900/50 text-orange-700 dark:text-orange-400 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2" id="btn-shuffle"><i data-lucide="shuffle" width="18"></i> Shuffle</button>
+                            <button onclick="clearForm()" class="w-12 h-12 flex items-center justify-center rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"><i data-lucide="eraser" width="18"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Full Prompt Field -->
+                    <div id="full-prompt-container" class="bg-stone-50 dark:bg-[#161616] border border-stone-300 dark:border-stone-800 rounded-2xl p-4 relative transition-all">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300" id="label-full-prompt">FULL PROMPT</label>
+                            <div class="flex gap-2">
+                                <button onclick="showHistory('full')" id="btn-hist-full" class="h-6 px-2 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-orange-500 shadow-sm flex items-center gap-1 transition-all">
+                                    <i data-lucide="history" width="12"></i> Cache
+                                </button>
+                                <button onclick="copyText('full')" id="btn-copy-full" class="h-6 px-2 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-orange-500 shadow-sm flex items-center gap-1 transition-all"><i data-lucide="copy" width="12"></i> Copy</button>
+                                <button onclick="clearText('full')" class="h-6 px-2 bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-400 hover:text-red-500 shadow-sm flex items-center justify-center transition-all"><i data-lucide="trash-2" width="12"></i></button>
+                            </div>
+                        </div>
+                        <textarea id="input-full" oninput="markDirty()" onkeydown="handleFullPromptKey(event)" class="w-full h-64 pb-10 bg-transparent border-none text-base leading-relaxed text-stone-800 dark:text-stone-200 resize-none focus:ring-0 p-0 outline-none placeholder-stone-400 dark:placeholder-stone-700" placeholder="Start typing..."></textarea>
+                        <button onclick="handleOpenExternal()" class="absolute bottom-3 right-3 h-8 w-8 flex items-center justify-center bg-stone-200 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-500 hover:text-orange-500 transition-colors shadow-sm z-10"><i data-lucide="external-link" width="14"></i></button>
+                    </div>
+                    
+                    <!-- Quick History Tabs (Full) -->
+                    <div id="tabs-full" class="flex flex-col gap-2 mt-2 px-1"></div>
+
+                    <!-- Negative Prompt Field -->
+                    <div id="negative-container" class="hidden animate-slide-up">
+                        <div class="bg-stone-200 dark:bg-[#262626] border border-stone-300 dark:border-stone-800 rounded-2xl p-4 transition-colors">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-2" id="label-neg"><i data-lucide="ban" width="12"></i> Negative</label>
+                                <div class="flex gap-2">
+                                    <button onclick="showHistory('neg')" id="btn-hist-neg" class="h-6 px-2 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-orange-500 shadow-sm flex items-center gap-1 transition-all"><i data-lucide="history" width="12"></i> Cache</button>
+                                    <button onclick="copyText('neg')" id="btn-copy-neg" class="h-6 px-2 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-orange-500 shadow-sm flex items-center gap-1 transition-all"><i data-lucide="copy" width="12"></i> Copy</button>
+                                    <button onclick="clearText('neg')" class="h-6 px-2 bg-stone-100 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 rounded-lg text-stone-400 hover:text-red-500 shadow-sm flex items-center justify-center transition-all"><i data-lucide="trash-2" width="12"></i></button>
+                                </div>
+                            </div>
+                            <textarea id="input-neg" oninput="markDirty()" onkeydown="handleNegPromptKey(event)" class="w-full bg-transparent border-none p-0 text-sm text-stone-800 dark:text-stone-200 placeholder-stone-500 focus:ring-0 resize-none h-20 outline-none" placeholder="Elements to exclude..."></textarea>
+                        </div>
+                        <!-- Quick History Tabs (Neg) -->
+                        <div id="tabs-neg" class="flex flex-col gap-2 mt-2 px-1"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Bottom Bar -->
+            <div class="p-4 bg-stone-100 dark:bg-[#111] border-t border-stone-300 dark:border-stone-800 flex flex-col gap-2 z-30 transition-colors">
+                <div id="save-options" class="hidden flex gap-2 mb-2 animate-slide-up">
+                    <button onclick="confirmSave('overwrite')" id="btn-overwrite" class="flex-1 py-3 bg-stone-200 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 rounded-xl text-stone-600 dark:text-stone-300 text-xs font-bold transition-colors">Overwrite</button>
+                    <button onclick="confirmSave('new')" id="btn-save-new" class="flex-1 py-3 bg-stone-900 dark:bg-white hover:bg-stone-800 dark:hover:bg-stone-200 text-white dark:text-black rounded-xl text-xs font-bold transition-colors">Save New Version</button>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <div class="flex-1 relative">
+                        <!-- UPDATED: Added onkeydown handler for Note -->
+                        <textarea id="input-note" oninput="markDirty()" onkeydown="handleNoteKey(event)" placeholder="Version notes or remarks" class="w-full pl-4 pr-12 py-3 bg-stone-200 dark:bg-stone-900 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500/50 resize-none h-12 overflow-hidden outline-none placeholder-stone-500" rows="1"></textarea>
+                    </div>
+                    <button onclick="toggleHistoryPanel()" id="btn-history" class="h-12 px-4 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-700 rounded-xl font-bold text-xs transition-colors flex items-center gap-2">
+                        <i data-lucide="git-branch" width="16"></i> <span class="hidden md:inline">History</span>
+                    </button>
+                    <button onclick="handleSaveClick()" id="btn-save" class="h-12 px-6 rounded-xl font-bold text-white shadow-lg transition-all flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-emerald-900/20">
+                        <i data-lucide="save" width="20"></i> <span class="hidden md:inline" id="label-save">Save</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Panel Overlay -->
+    <div id="history-backdrop" onclick="toggleHistoryPanel()" class="hidden absolute inset-0 z-30 bg-black/20 backdrop-blur-sm transition-all"></div>
+
+    <!-- History Panel -->
+    <div id="history-panel" class="absolute inset-y-0 right-0 w-80 bg-stone-100/95 dark:bg-[#111]/95 backdrop-blur-xl border-l border-stone-300 dark:border-stone-800 transform translate-x-full transition-transform duration-300 z-40 flex flex-col">
+        <div class="h-16 flex items-center justify-between px-4 border-b border-stone-300 dark:border-stone-800 flex-shrink-0">
+            <h3 class="font-bold text-lg" id="panel-history-title">Version History</h3>
+            <button onclick="toggleHistoryPanel()" class="p-2 bg-stone-200 dark:bg-stone-800 rounded-full text-stone-500"><i data-lucide="x" width="16"></i></button>
+        </div>
+        <div id="version-list" class="p-4 overflow-y-auto flex-1 space-y-3"></div>
+    </div>
+
+    <!-- History Modal (Used for Session Cache) -->
+    <div id="modal-history" class="hidden fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onclick="if(event.target === this) closeModalHistory()">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-stone-300 dark:border-stone-800 flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-stone-800 dark:text-stone-100" id="modal-hist-title"><i data-lucide="history" width="18" class="text-orange-500"></i> Cache</h3>
+                <button onclick="closeModalHistory()"><i data-lucide="x" width="18" class="text-stone-400"></i></button>
+            </div>
+            <div id="modal-hist-content" class="flex-1 overflow-y-auto p-2"></div>
+        </div>
+    </div>
+
+    <!-- Snippet Modal -->
+    <div id="modal-snippets" class="hidden fixed inset-0 z-[160] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onclick="if(event.target === this) closeModalSnippets()">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-stone-300 dark:border-stone-800 flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-stone-800 dark:text-stone-100"><i data-lucide="folder-open" width="18" class="text-orange-500"></i> <span id="modal-snip-title">Snippets</span></h3>
+                <button onclick="closeModalSnippets()"><i data-lucide="x" width="18" class="text-stone-400"></i></button>
+            </div>
+            <div id="modal-snip-content" class="flex-1 overflow-y-auto p-2"></div>
+        </div>
+    </div>
+
+    <!-- Storage Choice Modal -->
+    <div id="modal-storage" class="hidden fixed inset-0 z-[170] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onclick="if(event.target === this) closeStorageModal()">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-stone-800 dark:text-stone-100" id="storage-title">Storage Options</h3>
+                <button onclick="closeStorageModal()" class="text-stone-400 hover:text-stone-600"><i data-lucide="x" width="20"></i></button>
+            </div>
+            <div class="space-y-3">
+                <button onclick="handleStorageAction('local')" class="w-full p-4 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-800 flex items-center gap-3 transition-colors">
+                    <i data-lucide="hard-drive" width="20" class="text-stone-500"></i>
+                    <div class="text-left">
+                        <div class="font-bold text-stone-800 dark:text-stone-200">Local Device</div>
+                        <div class="text-xs text-stone-500">Save/Load .json file</div>
+                    </div>
+                </button>
+                <button onclick="handleStorageAction('drive')" class="w-full p-4 rounded-xl border border-stone-300 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-800 flex items-center gap-3 transition-colors opacity-70">
+                    <i data-lucide="cloud" width="20" class="text-red-900 dark:text-red-500"></i>
+                    <div class="text-left">
+                        <div class="font-bold text-red-900 dark:text-red-500 line-through">Google Drive</div>
+                        <div class="text-xs text-red-900/70 dark:text-red-500/70 line-through">Cloud Storage</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hotkey Guide Modal -->
+    <div id="modal-hotkeys" class="hidden fixed inset-0 z-[160] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onclick="if(event.target === this) closeHotkeysModal()">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-stone-800 dark:text-stone-100 flex items-center gap-2">
+                    <i data-lucide="keyboard" width="20" class="text-orange-500"></i> Keyboard Shortcuts
+                </h3>
+                <button onclick="closeHotkeysModal()" class="text-stone-400 hover:text-stone-600"><i data-lucide="x" width="20"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between"><span class="text-stone-500">New Prompt</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + M</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Save</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + S</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Combine & Copy</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + Enter</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Copy Full Prompt</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + Shift + S</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Clear Parameters</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + Shift + X</span></div>
+                <hr class="border-stone-200 dark:border-stone-800 my-2">
+                <div class="flex justify-between"><span class="text-stone-500">Image Mode</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + I</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Video Mode</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + U</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Freestyle Mode</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Ctrl + J</span></div>
+                <hr class="border-stone-200 dark:border-stone-800 my-2">
+                <div class="flex justify-between"><span class="text-stone-500">Confirm Yes</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">Y</span></div>
+                <div class="flex justify-between"><span class="text-stone-500">Confirm No</span> <span class="font-mono bg-stone-200 dark:bg-stone-800 px-2 py-0.5 rounded text-stone-700 dark:text-stone-300">N</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onclick="if(event.target === this) closeConfirm()">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 p-6 rounded-2xl shadow-2xl max-w-xs w-full transform scale-100 transition-all">
+            <div class="flex items-center gap-3 mb-4 text-stone-800 dark:text-stone-100">
+                <div class="p-2 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600">
+                    <i data-lucide="alert-triangle" width="20"></i>
+                </div>
+                <h3 class="font-bold text-lg tracking-tight" id="confirm-title">Confirm</h3>
+            </div>
+            <p class="text-stone-600 dark:text-stone-400 mb-6 text-sm leading-relaxed" id="confirm-message">Are you sure?</p>
+            <div class="flex gap-3">
+                <button onclick="closeConfirm()" class="flex-1 h-11 rounded-xl font-medium border border-stone-300 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors" id="btn-confirm-no">No</button>
+                <button onclick="onConfirmClick()" class="flex-1 h-11 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 bg-red-600 hover:bg-red-500 shadow-red-900/20" id="btn-confirm-yes">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trial Limit Modal (restored as precaution) -->
+    <div id="modal-limit" class="hidden fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 p-6 rounded-2xl shadow-2xl max-w-sm w-full">
+             <div class="flex flex-col items-center text-center mb-4">
+                <div class="p-3 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 mb-3">
+                    <i data-lucide="lock" width="32"></i>
+                </div>
+                <h3 class="font-bold text-xl text-stone-800 dark:text-stone-100">Showcase Limit Reached</h3>
+            </div>
+            <p class="text-stone-600 dark:text-stone-400 mb-6 text-sm leading-relaxed text-center">
+                This is a showcase version restricted to <strong>2 prompts</strong>. <br><br>
+                Please contact <strong>Vision IV</strong> for the full version.
+            </p>
+            <button onclick="document.getElementById('modal-limit').classList.add('hidden')" class="w-full h-11 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 bg-stone-900 dark:bg-white dark:text-black">Understood</button>
+        </div>
+    </div>
+
+    <!-- NEW: Welcome Modal (Concise Version) -->
+    <div id="modal-welcome" class="hidden fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-stone-50 dark:bg-stone-900 border border-stone-300 dark:border-stone-700 p-6 rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <h2 class="text-2xl font-black mb-4 text-stone-800 dark:text-stone-100">Welcome to VIVV!</h2>
+            
+            <div class="space-y-4 text-sm text-stone-600 dark:text-stone-300 leading-relaxed">
+                <div>
+                    <h3 class="font-bold text-base text-stone-800 dark:text-stone-200 mb-1">Quick Start Guide</h3>
+                    <p class="text-xs text-stone-400 italic mb-2">(You can open this guide again via the 'Guide' button)</p>
+                    <ul class="list-disc pl-4 space-y-1">
+                         <li>Click <strong>[+ New Prompt]</strong> to start.</li>
+                         <li>Default is Image Mode. Fill in fields and press Enter.</li>
+                         <li>Last field combines & copies text automatically! 😁</li>
+                         <li>Click ↗️ to launch the selected AI immediately! 🙌</li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <h3 class="font-bold text-base text-stone-800 dark:text-stone-200 mb-1">Saving & History</h3>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li>Cmd/Ctrl+S to save.</li>
+                        <li>Click <strong>[History]</strong> to view versions.</li>
+                    </ul>
+                </div>
+    
+                <div>
+                     <h3 class="font-bold text-base text-stone-800 dark:text-stone-200 mb-1">Tips</h3>
+                     <ul class="list-disc pl-4 space-y-1">
+                        <li>[⌨️] for shortcuts.</li>
+                        <li>[🌙] for Dark Mode.</li>
+                     </ul>
+                </div>
+            </div>
+    
+            <button onclick="closeWelcome()" class="mt-6 w-full h-11 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 bg-stone-900 dark:bg-white dark:text-black">Let's Go!</button>
+        </div>
+    </div>
+
+    <!-- Javascript Logic -->
+    <script>
+        // --- 1. CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDU6N5pUW1mMJ1o2_IvULaEuT8xoaSTU9A",
+            authDomain: "vivv-public-showcase.firebaseapp.com",
+            projectId: "vivv-public-showcase",
+            storageBucket: "vivv-public-showcase.firebasestorage.app",
+            messagingSenderId: "655739864644",
+            appId: "1:655739864644:web:2e676abe584b15a6bd1e11"
+        };
+        
+        const appId = 'vivv-public-showcase';
+
+        // --- 2. GLOBAL STATE ---
+        const MODEL_URLS = {
+            'Grok': 'https://grok.com/imagine',
+            'ChatGPT': 'https://chatgpt.com',
+            'Gemini': 'https://gemini.google.com/app',
+            'Runway': 'https://runwayml.com',
+            'Pika': 'https://pika.art',
+            'Sora': 'https://openai.com/sora',
+            'Midjourney': 'https://discord.com/invite/midjourney'
+        };
+
+        const DEFAULT_MODELS = ['Grok', 'Gemini', 'ChatGPT', 'Runway', 'Pika', 'Sora', 'Midjourney'];
+
+        const TRANSLATIONS = {
+            en: {
+                newPrompt: "New Prompt",
+                search: "Search prompts",
+                untitled: "Untitled Scenario",
+                save: "Save",
+                history: "Version History",
+                cancel: "Cancel",
+                negative: "Negative",
+                combine: "Combine",
+                scramble: "Shuffle",
+                copy: "Copy",
+                copied: "Copied!",
+                showAll: "Cache", 
+                project: "Project Name",
+                initial: "Version notes or remarks",
+                overwrite: "Overwrite",
+                saveNew: "Save New Version",
+                confirmTitle: "Confirm",
+                confirmMsg: "Permanently delete this scenario?",
+                yes: "Yes",
+                no: "No",
+                byVision: "By Varakorn T.",
+                all: "All", free: "Free", img: "Img", vid: "Vid",
+                fullPrompt: "FULL PROMPT",
+                launch: "Launch Model",
+                modeFree: "Freestyle", modeImg: "Image Gen", modeVid: "Video Gen",
+                txtVid: "Text-to-Vid", imgVid: "Img-to-Vid", txtImg: "Txt2Img", imgImg: "Img2Img",
+                emptyHistory: "Cache empty",
+                importSuccess: "Vault Restored!",
+                emptySnippets: "No snippets saved for this category.",
+                inputPlaceholder: "...",
+                
+                // Categories
+                'Subject': 'Subject / Character', 
+                'Artform & Style': 'Artform & Style', 
+                'Background': 'Background / Setting', 
+                'Lighting & Color': 'Lighting & Palette', 
+                'Camera & View': 'Camera / Angle', 
+                'Vibe & Mood': 'Vibe / Mood',
+                'Other': 'Other', 
+                
+                'Subject & Action': 'Subject & Action',
+                'Environment': 'Environment',
+                'Camera Movement': 'Camera Motion', 
+                'Lighting & Atmosphere': 'Lighting & Atmos',
+                'Style': 'Visual Style',
+                'Tech Specs': 'Technical Specs',
+                
+                'Context': 'Context',
+                'Target Motion': 'Target Motion',
+                'Camera Motion': 'Camera Motion',
+                'Dynamics': 'Dynamics',
+                'Consistency': 'Consistency'
+            },
+            th: {
+                newPrompt: "สร้างพรอมต์ใหม่",
+                search: "ค้นหาพรอมต์",
+                untitled: "ไม่มีชื่อ",
+                save: "บันทึก",
+                history: "ประวัติเวอร์ชัน",
+                cancel: "ยกเลิก",
+                negative: "Negative",
+                combine: "รวม",
+                scramble: "สุ่มผสม",
+                copy: "คัดลอก",
+                copied: "เรียบร้อย!",
+                showAll: "แคช",
+                project: "ชื่อโปรเจกต์",
+                initial: "ใส่โน้ตหรือหมายเหตุกำกับเวอร์ชัน",
+                overwrite: "ทับเดิม",
+                saveNew: "เวอร์ชันใหม่",
+                confirmTitle: "ยืนยัน",
+                confirmMsg: "ลบรายการนี้ถาวร?",
+                yes: "ใช่",
+                no: "ไม่",
+                byVision: "โดย Varakorn T.",
+                all: "ทั้งหมด", free: "อิสระ", img: "รูปภาพ", vid: "วิดีโอ",
+                fullPrompt: "พรอมต์ฉบับเต็ม",
+                launch: "เปิดโมเดล",
+                modeFree: "ข้อความอิสระ", modeImg: "สร้างรูปภาพ", modeVid: "สร้างวิดีโอ",
+                txtVid: "จากข้อความ", imgVid: "จากรูป", txtImg: "Txt2Img", imgImg: "Img2Img",
+                emptyHistory: "ว่างเปล่า",
+                importSuccess: "นำเข้าสำเร็จ!",
+                emptySnippets: "ไม่มีข้อมูลในหมวดนี้",
+                inputPlaceholder: "...",
+
+                // Categories
+                'Subject': 'ตัวแบบ', 'Artform & Style': 'รูปแบบสื่อ & สไตล์', 'Background': 'พื้นหลัง / ฉาก', 
+                'Lighting & Color': 'การจัดแสง & โทนสี', 'Camera & View': 'มุมกล้อง', 'Vibe & Mood': 'อารมณ์ / บรรยากาศ', 'Other': 'อื่นๆ',
+                'Subject & Action': 'ตัวแบบ & การกระทำ', 'Environment': 'สภาพแวดล้อม', 'Camera Movement': 'การเคลื่อนกล้อง', 
+                'Lighting & Atmosphere': 'แสงและบรรยากาศ', 'Style': 'สไตล์ภาพ', 'Tech Specs': 'สเปคทางเทคนิค',
+                'Context': 'บริบท', 'Target Motion': 'การเคลื่อนไหวของวัตถุ', 'Camera Motion': 'การเคลื่อนไหวของกล้อง', 'Dynamics': 'ความรุนแรงของการเคลื่อนไหว', 'Consistency': 'ความคงที่'
+            }
+        };
+
+        let app = null, auth = null, db = null;
+        let user = null;
+        let prompts = [];
+        let snippets = [];
+        let filteredPrompts = [];
+        let selectedPromptId = null;
+        let isDraft = false;
+        let isDirty = false;
+        let appMode = 'free'; 
+        let vidSubMode = 'txt';
+        let imgSubMode = 'txt2img';
+        let autoComma = true;
+        let showNegative = false;
+        let isSidebarCollapsed = false;
+        let mobileView = 'list'; // 'list' or 'detail'
+        let localHistory = { full: [], neg: [], form: [] };
+        let currentLang = 'en';
+        let currentFilter = 'all';
+        let searchTerm = '';
+        let snippetCategory = null;
+        let currentModel = 'Grok';
+        
+        // Cache loaded versions for restore logic
+        let currentLoadedVersions = []; 
+        
+        let confirmCallback = null;
+        let storageAction = null; // 'export' or 'import'
+        
+        const CATEGORIES_IMG = ['Subject', 'Artform & Style', 'Background', 'Lighting & Color', 'Camera & View', 'Vibe & Mood', 'Other'];
+        const CATEGORIES_VID_TXT = ['Subject & Action', 'Environment', 'Camera Movement', 'Lighting & Atmosphere', 'Style', 'Tech Specs', 'Other'];
+        const CATEGORIES_VID_IMG = ['Context', 'Target Motion', 'Camera Motion', 'Dynamics', 'Consistency', 'Tech Specs', 'Other'];
+        
+        let formState = {};
+
+        // --- 3. INITIALIZATION ---
+        function initApp() {
+            // 1. Initialize Firebase ONLY for Stats
+            try {
+                if(firebase.apps.length === 0) {
+                    app = firebase.initializeApp(firebaseConfig);
+                } else {
+                    app = firebase.app();
+                }
+                auth = firebase.auth();
+                db = firebase.firestore();
+
+                auth.onAuthStateChanged(u => {
+                    user = u;
+                    if (user) {
+                        initStats(); // Live stats (Firebase)
+                        document.getElementById('db-status').textContent = "● Connected";
+                        document.getElementById('db-status').classList.remove('hidden', 'text-red-500', 'text-orange-500');
+                        document.getElementById('db-status').classList.add('text-emerald-500');
+                    } else {
+                        document.getElementById('db-status').textContent = "● Connecting...";
+                        document.getElementById('db-status').classList.remove('hidden');
+                        firebase.auth().signInAnonymously().catch(e => {
+                            console.error("Auth Failed", e);
+                            document.getElementById('db-status').textContent = "● Auth Error";
+                            document.getElementById('db-status').classList.add('text-red-500');
+                            showToast("Auth Error: Enable Anonymous Auth in Console");
+                        });
+                    }
+                });
+            } catch(e) {
+                console.error("Firebase init error:", e);
+            }
+            
+            // 2. Load Local Data (Prompts, Snippets) - NO FIREBASE FOR CONTENT
+            loadPrompts();
+            loadSnippets();
+            
+            if (localStorage.getItem('theme') === 'light') {
+                document.documentElement.classList.remove('dark');
+            }
+            
+            // Init Dropdowns
+            renderDropdowns();
+            // Force initial UI update to ensure sidebar visibility on mobile
+            updateUI();
+            
+            // Check Welcome Modal
+            if (!localStorage.getItem('vivv_welcome_seen_070')) {
+                document.getElementById('modal-welcome').classList.remove('hidden');
+            }
+
+            // Global Keydown Listener
+            document.addEventListener('keydown', (e) => {
+                // Confirmation Modal Shortcuts
+                const modal = document.getElementById('confirm-modal');
+                if (!modal.classList.contains('hidden')) {
+                    if (e.key === 'y' || e.key === 'Y') {
+                        e.preventDefault();
+                        onConfirmClick();
+                        return;
+                    }
+                    if (e.key === 'n' || e.key === 'N') {
+                        e.preventDefault();
+                        closeConfirm();
+                        return;
+                    }
+                }
+                
+                // ESC Key Logic (New in 0.6.9)
+                if (e.key === 'Escape') {
+                    // Close Modals first (LIFO order conceptually)
+                    const welcome = document.getElementById('modal-welcome');
+                    if (!welcome.classList.contains('hidden')) { closeWelcome(); return; }
+                    const confirm = document.getElementById('confirm-modal');
+                    if (!confirm.classList.contains('hidden')) { closeConfirm(); return; }
+                    const limit = document.getElementById('modal-limit');
+                    if (limit && !limit.classList.contains('hidden')) { limit.classList.add('hidden'); return; }
+                    
+                    const hotkeys = document.getElementById('modal-hotkeys');
+                    if (!hotkeys.classList.contains('hidden')) { closeHotkeysModal(); return; }
+                    
+                    const storage = document.getElementById('modal-storage');
+                    if (!storage.classList.contains('hidden')) { closeStorageModal(); return; }
+                    
+                    const snippets = document.getElementById('modal-snippets');
+                    if (!snippets.classList.contains('hidden')) { closeModalSnippets(); return; }
+                    
+                    const history = document.getElementById('modal-history');
+                    if (!history.classList.contains('hidden')) { closeModalHistory(); return; }
+                    
+                    // Close Dropdowns
+                    document.getElementById('model-dropdown').classList.add('hidden');
+                    document.getElementById('mode-dropdown').classList.add('hidden');
+                    // Reset z-indexes if needed, usually handled by toggle functions logic or click-outside logic but good to ensure
+                    document.getElementById('model-select-container').style.zIndex = '20';
+                    document.getElementById('mode-select-container').style.zIndex = '20';
+                    
+                    // Close History Panel
+                    const hPanel = document.getElementById('history-panel');
+                    if (!hPanel.classList.contains('translate-x-full')) toggleHistoryPanel();
+                    
+                    // Close Mobile Sidebar
+                    if (window.innerWidth < 768) closeMobileSidebar();
+                    return;
+                }
+
+                // 1.1 Ctrl+M = New Prompt
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'm' || e.key === 'M')) {
+                    e.preventDefault();
+                    handleStartNew();
+                }
+
+                // 2.1 Ctrl+S = Save
+                if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    handleSaveClick();
+                }
+                
+                // 2.2 Ctrl+Enter = Combine & Copy
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    handleCombine();
+                    copyText('full'); 
+                }
+
+                // 2.3 Ctrl+Shift+S = Copy Full Prompt
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 's' || e.key === 'S')) {
+                    e.preventDefault();
+                    copyText('full');
+                }
+
+                // 2.4 Ctrl+Shift+X = Clear all parameters
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+                    e.preventDefault();
+                    clearForm();
+                }
+
+                // 2.1 New Hotkeys 0.5.8
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) {
+                    e.preventDefault();
+                    setAppMode('img');
+                }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+                    e.preventDefault();
+                    setAppMode('vid');
+                }
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
+                    e.preventDefault();
+                    setAppMode('free');
+                }
+            });
+            
+            // GLOBAL CLICK LISTENER: Close dropdowns AND history panel if clicked outside
+            window.addEventListener('click', (event) => {
+                const modelContainer = document.getElementById('model-select-container');
+                const modelDropdown = document.getElementById('model-dropdown');
+                if (modelContainer && !modelContainer.contains(event.target)) {
+                    modelDropdown.classList.add('hidden');
+                    modelContainer.style.zIndex = '20';
+                }
+
+                const modeContainer = document.getElementById('mode-select-container');
+                const modeDropdown = document.getElementById('mode-dropdown');
+                if (modeContainer && !modeContainer.contains(event.target)) {
+                    modeDropdown.classList.add('hidden');
+                    modeContainer.style.zIndex = '20';
+                }
+
+                // History Panel Logic (Updated 0.6.9 to prevent closing on interactions with modals)
+                const historyPanel = document.getElementById('history-panel');
+                const historyBtn = document.getElementById('btn-history'); 
+                
+                // If the click came from inside a modal, do NOT close the history panel
+                if (event.target.closest('#confirm-modal') || 
+                    event.target.closest('#modal-history') || 
+                    event.target.closest('#modal-snippets') || 
+                    event.target.closest('#modal-storage') || 
+                    event.target.closest('#modal-hotkeys') ||
+                    event.target.closest('#modal-welcome')) {
+                    return;
+                }
+
+                // We check if panel is open (not hidden by translate)
+                if (historyPanel && !historyPanel.classList.contains('translate-x-full')) {
+                    // If click is NOT inside panel AND NOT on the toggle button
+                    if (!historyPanel.contains(event.target) && !historyBtn.contains(event.target)) {
+                        historyPanel.classList.add('translate-x-full');
+                    }
+                }
+            });
+            
+            lucide.createIcons();
+        }
+
+        // --- NEW: STATISTICS LOGIC (FIREBASE ONLY) ---
+        function initStats() {
+            if (!db) return;
+            listenToStats();
+            incrementVisit();
+            
+            // Track Unique (Persistent)
+            if (!localStorage.getItem('vivv_unique_tracked')) {
+                incrementStat('unique');
+                localStorage.setItem('vivv_unique_tracked', 'true');
+            }
+        }
+
+        function incrementVisit() {
+            if (!sessionStorage.getItem('vivv_visit_tracked')) {
+                incrementStat('visits');
+                sessionStorage.setItem('vivv_visit_tracked', 'true');
+            }
+        }
+
+        function incrementStat(type) {
+            if(!db) return;
+            // Updated Path: stats/global (Simple Path)
+            const statsRef = db.collection('stats').doc('global');
+            
+            statsRef.set({
+                [type]: firebase.firestore.FieldValue.increment(1)
+            }, { merge: true }).catch(e => {
+                console.warn("Stat update failed:", e.code);
+                if(e.code === 'permission-denied') {
+                    showToast("DB Permission Denied. Check Rules.");
+                    document.getElementById('db-status').textContent = "● Perm. Denied";
+                    document.getElementById('db-status').classList.remove('text-emerald-500');
+                    document.getElementById('db-status').classList.add('text-red-500');
+                }
+            });
+        }
+
+        function listenToStats() {
+             if(!db) return;
+             const statsRef = db.collection('stats').doc('global');
+             
+             statsRef.onSnapshot(doc => {
+                 if(doc.exists) {
+                     const data = doc.data();
+                     const elVisit = document.getElementById('stat-visit');
+                     const elUnique = document.getElementById('stat-unique');
+                     const elCopy = document.getElementById('stat-copy');
+                     const elSave = document.getElementById('stat-save');
+                     
+                     if(elVisit) elVisit.textContent = formatStat(data.visits || 0);
+                     if(elUnique) elUnique.textContent = formatStat(data.unique || 0);
+                     if(elCopy) elCopy.textContent = formatStat(data.copies || 0);
+                     if(elSave) elSave.textContent = formatStat(data.saves || 0);
+                 }
+             }, (error) => {
+                 console.warn("Stats unavailable:", error.code);
+             });
+        }
+
+        function formatStat(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+            return num.toLocaleString();
+        }
+
+        // --- END STATISTICS LOGIC ---
+        
+        function renderDropdowns() {
+             // Render Model List
+            const modelList = document.getElementById('model-dropdown');
+            if(modelList) {
+                modelList.innerHTML = '';
+                DEFAULT_MODELS.forEach(m => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left px-4 py-3 text-sm hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-200 transition-colors";
+                    btn.textContent = m;
+                    btn.onclick = () => {
+                        currentModel = m;
+                        document.getElementById('current-model-text').textContent = m;
+                        document.getElementById('select-model').value = m; 
+                        toggleModelSelector();
+                        markDirty();
+                    };
+                    modelList.appendChild(btn);
+                });
+            }
+        }
+
+        // --- 4. RENDER FUNCTIONS ---
+        function applyTranslations() {
+            const t = TRANSLATIONS[currentLang];
+            document.getElementById('label-new-prompt').textContent = t.newPrompt;
+            document.getElementById('input-search').placeholder = t.search;
+            document.getElementById('filter-all').textContent = t.all;
+            document.getElementById('filter-free').textContent = t.free;
+            document.getElementById('filter-img').textContent = t.img;
+            document.getElementById('filter-vid').textContent = t.vid;
+            // No longer updating footer credit via JS translation to keep static links
+            
+            // Editor
+            document.getElementById('input-title').placeholder = t.project;
+            document.getElementById('input-note').placeholder = t.initial;
+            document.getElementById('btn-history').innerHTML = `<i data-lucide="git-branch" width="16"></i> <span class="hidden md:inline">${t.history}</span>`;
+            document.getElementById('label-save').textContent = t.save;
+            document.getElementById('btn-overwrite').textContent = t.overwrite;
+            document.getElementById('btn-save-new').textContent = t.saveNew;
+            
+            document.getElementById('btn-launch').title = t.launch;
+            
+            // Mode labels update via updateUI
+            document.getElementById('label-full-prompt').textContent = t.fullPrompt;
+            document.getElementById('btn-hist-full').innerHTML = `<i data-lucide="history" width="12"></i> ${t.showAll}`;
+            document.getElementById('btn-copy-full').innerHTML = `<i data-lucide="copy" width="12"></i> ${t.copy}`;
+            
+            document.getElementById('label-neg').innerHTML = `<i data-lucide="ban" width="12"></i> ${t.negative}`;
+            document.getElementById('btn-hist-neg').textContent = t.showAll;
+            document.getElementById('btn-copy-neg').innerHTML = `<i data-lucide="copy" width="12"></i> ${t.copy}`;
+            
+            // Modal
+            document.getElementById('confirm-title').textContent = t.confirmTitle;
+            document.getElementById('btn-confirm-yes').textContent = t.yes;
+            document.getElementById('btn-confirm-no').textContent = t.no;
+            
+            document.getElementById('btn-combine').innerHTML = `<i data-lucide="merge" width="18"></i> ${t.combine}`;
+            document.getElementById('btn-shuffle').innerHTML = `<i data-lucide="shuffle" width="18"></i> ${t.scramble}`;
+            
+            // Button label update
+            document.getElementById('btn-lang').textContent = currentLang.toUpperCase();
+            
+            // Refresh fields to update placeholders
+            if (appMode !== 'free') {
+                renderParameters();
+            }
+            
+            updateUI(); // Refresh dynamic parts
+        }
+
+        function renderSidebar() {
+            const list = document.getElementById('prompt-list');
+            list.innerHTML = '';
+            
+            // Filter Logic
+            filteredPrompts = prompts.filter(p => {
+                const matchesSearch = (p.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                     p.currentContent?.toLowerCase().includes(searchTerm.toLowerCase()));
+                const matchesFilter = currentFilter === 'all' || 
+                                      (currentFilter === 'free' && p.mode === 'free') ||
+                                      (currentFilter === 'img' && p.mode === 'img') ||
+                                      (currentFilter === 'vid' && p.mode === 'vid');
+                return matchesSearch && matchesFilter;
+            });
+
+            if (filteredPrompts.length === 0) {
+                const emptyText = isSidebarCollapsed 
+                    ? (currentLang === 'th' ? 'ว่าง' : 'Empty') 
+                    : (currentLang === 'th' ? 'ไม่มีข้อมูล' : 'Vault is empty.');
+                const paddingClass = isSidebarCollapsed ? 'p-2 mt-4' : 'p-8';
+                list.innerHTML = `<div class="${paddingClass} text-center text-xs text-stone-500 dark:text-stone-400">${emptyText}</div>`;
+                return;
+            }
+
+            filteredPrompts.forEach(p => {
+                const isActive = selectedPromptId === p.id;
+                let badgeClass = "bg-stone-200 text-stone-500 dark:bg-stone-800 dark:text-stone-400";
+                let modeLabel = "FREE";
+                if (p.mode === 'img') { modeLabel = "IMG"; badgeClass = "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"; }
+                if (p.mode === 'vid') { modeLabel = "VID"; badgeClass = "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"; }
+
+                const div = document.createElement('div');
+                div.className = `group relative p-3 border-b cursor-pointer w-full select-none transition-all duration-200 border-stone-300 dark:border-stone-800/50 hover:bg-orange-50/50 dark:hover:bg-stone-800/60 active:scale-[0.99] ${isActive ? 'bg-orange-50 dark:bg-orange-900/10 border-l-4 border-l-orange-500' : 'border-l-4 border-l-transparent'} text-left`;
+                div.onclick = () => selectPrompt(p.id);
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-1 pointer-events-none">
+                        <h3 class="font-bold text-sm truncate pr-2 flex-1 ${isActive ? 'text-orange-700 dark:text-orange-400' : 'text-stone-700 dark:text-stone-200'}">${p.title || TRANSLATIONS[currentLang].untitled}</h3>
+                        ${!isSidebarCollapsed ? `<span class="text-[9px] px-1.5 py-0.5 rounded-md font-extrabold tracking-wider border border-white/10 ${badgeClass}">${modeLabel}</span>` : ''}
+                    </div>
+                    ${!isSidebarCollapsed ? `
+                    <p class="text-xs text-stone-500 dark:text-stone-400 line-clamp-2 mb-2 font-mono leading-relaxed opacity-80 pointer-events-none">${p.currentContent || '...'}</p>
+                    <div class="flex items-center gap-2 text-[10px] text-stone-400 dark:text-stone-500 pointer-events-none font-medium">
+                        <i data-lucide="clock" width="10"></i>
+                        <span>${p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : 'Just now'}</span>
+                        ${p.versionCount > 1 ? `<span class="ml-auto px-1.5 rounded-md bg-stone-200 dark:bg-stone-800 text-stone-500 dark:text-stone-400 border border-stone-200 dark:border-stone-700">v${p.versionCount}</span>` : ''}
+                    </div>` : ''}
+                `;
+                list.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function updateStatusIndicator() {
+            const statusInd = document.getElementById('status-indicator');
+            if (isDraft) {
+                statusInd.textContent = "Unsaved Draft";
+                statusInd.className = "text-orange-500";
+            } else if (isDirty) {
+                statusInd.textContent = "Unsaved Changes";
+                statusInd.className = "text-orange-500";
+            } else {
+                statusInd.textContent = "Saved";
+                statusInd.className = "";
+            }
+        }
+
+        function updateUI() {
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth < 768) {
+                if (selectedPromptId || isDraft) {
+                    sidebar.classList.add('sidebar-mobile-hidden');
+                    sidebar.classList.remove('sidebar-mobile-visible');
+                } else {
+                    sidebar.classList.remove('sidebar-mobile-hidden');
+                    sidebar.classList.add('sidebar-mobile-visible');
+                }
+            }
+
+            const emptyState = document.getElementById('empty-state');
+            const content = document.getElementById('editor-content');
+            
+            if (!selectedPromptId && !isDraft) {
+                if (window.innerWidth >= 768) {
+                    emptyState.classList.remove('hidden');
+                    content.classList.add('hidden');
+                }
+            } else {
+                emptyState.classList.add('hidden');
+                content.classList.remove('hidden');
+            }
+
+            updateStatusIndicator();
+
+            const t = TRANSLATIONS[currentLang];
+            const modeDisplay = document.getElementById('mode-display');
+            const modeIcon = appMode === 'vid' ? 'video' : appMode === 'img' ? 'image' : 'type';
+            const modeText = appMode === 'vid' ? t.modeVid : appMode === 'img' ? t.modeImg : t.modeFree;
+            modeDisplay.innerHTML = `<i data-lucide="${modeIcon}" width="16" class="${appMode==='vid'?'text-purple-500':appMode==='img'?'text-emerald-500':'text-stone-500'}"></i> ${modeText}`;
+
+            const paramForm = document.getElementById('parameter-form');
+            const fullInput = document.getElementById('input-full');
+            
+            if (appMode === 'free') {
+                paramForm.classList.add('hidden');
+                document.getElementById('full-prompt-container').classList.remove('bg-stone-50', 'dark:bg-[#2E2E2E]');
+                document.getElementById('full-prompt-container').classList.add('bg-white', 'dark:bg-[#161616]');
+                fullInput.classList.remove('h-32');
+                fullInput.classList.add('h-64');
+            } else {
+                paramForm.classList.remove('hidden');
+                const grid = document.getElementById('form-grid');
+                if (grid.children.length === 0) {
+                    renderParameters();
+                }
+                document.getElementById('full-prompt-container').classList.add('bg-stone-50', 'dark:bg-[#2E2E2E]');
+                document.getElementById('full-prompt-container').classList.remove('bg-white', 'dark:bg-[#161616]');
+                fullInput.classList.remove('h-64');
+                fullInput.classList.add('h-32');
+            }
+
+            const submodeSel = document.getElementById('submode-selector');
+            if (appMode === 'free') {
+                submodeSel.classList.add('hidden');
+            } else {
+                submodeSel.classList.remove('hidden');
+                if (appMode === 'vid') {
+                    submodeSel.innerHTML = `
+                        <button onclick="setSubMode('txt')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${vidSubMode==='txt' ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' : 'text-stone-400'}">${t.txtVid}</button>
+                        <button onclick="setSubMode('img')" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all ${vidSubMode==='img' ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' : 'text-stone-400'}">${t.imgVid}</button>
+                    `;
+                } else {
+                    submodeSel.innerHTML = `
+                        <button class="flex-1 py-2 rounded-lg text-xs font-bold transition-all bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white">${t.txtImg}</button>
+                        <!-- UPDATED: Img2Img has strikethrough -->
+                        <button disabled class="flex-1 py-2 rounded-lg text-xs font-bold transition-all opacity-50 cursor-not-allowed text-red-700 dark:text-red-900 line-through">${t.imgImg}</button>
+                    `;
+                }
+            }
+
+            const negContainer = document.getElementById('negative-container');
+            const btnNeg = document.getElementById('btn-neg-toggle');
+            if (showNegative) {
+                negContainer.classList.remove('hidden');
+                btnNeg.className = "h-12 px-4 rounded-xl border font-semibold text-sm transition-all flex items-center gap-2 bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-900/50";
+                document.getElementById('icon-neg-toggle').setAttribute('data-lucide', 'toggle-right');
+            } else {
+                negContainer.classList.add('hidden');
+                btnNeg.className = "h-12 px-4 rounded-xl border font-semibold text-sm transition-all flex items-center gap-2 bg-stone-200 border-stone-200 text-stone-500 dark:bg-stone-900 dark:border-stone-800 dark:text-stone-400";
+                document.getElementById('icon-neg-toggle').setAttribute('data-lucide', 'toggle-left');
+            }
+
+            // FIX: Update z-indexes to prevent overlay
+            const modelContainer = document.getElementById('model-select-container');
+            const modeContainer = document.getElementById('mode-select-container');
+            
+            if (!document.getElementById('model-dropdown').classList.contains('hidden')) {
+                 modelContainer.style.zIndex = '50';
+                 modeContainer.style.zIndex = '20';
+            } else if (!document.getElementById('mode-dropdown').classList.contains('hidden')) {
+                 modeContainer.style.zIndex = '50';
+                 modelContainer.style.zIndex = '20';
+            } else {
+                 modelContainer.style.zIndex = '20';
+                 modeContainer.style.zIndex = '20';
+            }
+
+            // Corrected Cache Rendering: Select source based on mode
+            const historySource = appMode === 'free' ? localHistory.full : localHistory.form;
+            renderTabs('full', historySource);
+            renderTabs('neg', localHistory.neg);
+
+            lucide.createIcons();
+        }
+
+        function renderParameters() {
+            const grid = document.getElementById('form-grid');
+            grid.innerHTML = '';
+            let categories = [];
+            if (appMode === 'img') categories = CATEGORIES_IMG;
+            else if (appMode === 'vid') categories = vidSubMode === 'txt' ? CATEGORIES_VID_TXT : CATEGORIES_VID_IMG;
+
+            categories.forEach((cat, i) => {
+                const div = document.createElement('div');
+                div.className = `group bg-stone-50 dark:bg-[#161616] p-4 rounded-2xl border border-stone-300 dark:border-stone-800 shadow-sm hover:border-orange-300 dark:hover:border-stone-600 transition-colors ${i === 0 ? 'md:col-span-2' : ''}`;
+                // UPDATED: Use detailed translation or fallback
+                const label = TRANSLATIONS[currentLang][cat] || cat;
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-xs font-bold uppercase tracking-wider text-stone-400 group-focus-within:text-orange-500 transition-colors">${label}</label>
+                        <div class="flex gap-1">
+                            <button onclick="handleSaveSnippet('${cat}')" class="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-400 hover:text-orange-600" title="Save Snippet"><i data-lucide="save" width="12"></i></button>
+                            <button onclick="renderSnippetModal('${cat}')" class="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-400 hover:text-orange-600" title="Load Snippet"><i data-lucide="folder-open" width="12"></i></button>
+                            <button onclick="clearParam('${cat}')" class="p-1.5 rounded hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-400 hover:text-red-500" title="Clear Field"><i data-lucide="eraser" width="12"></i></button>
+                        </div>
+                    </div>
+                    <textarea 
+                        id="param-${cat}"
+                        oninput="updateParam('${cat}', this.value)"
+                        onkeydown="handleParamKey(event, ${i}, ${categories.length})"
+                        class="w-full bg-transparent border-none p-0 text-sm md:text-base text-stone-800 dark:text-stone-200 placeholder-stone-400 dark:placeholder-stone-700 focus:ring-0 resize-none leading-relaxed outline-none"
+                        rows="${i===0 ? 2 : 3}"
+                        placeholder="${TRANSLATIONS[currentLang].inputPlaceholder || '...'}"
+                    >${formState[cat] || ''}</textarea>
+                `;
+                grid.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function renderTabs(type, history) {
+            const container = document.getElementById(type === 'neg' ? 'tabs-neg' : 'tabs-full');
+            // UPDATED: Vertical stack layout
+            container.className = "flex flex-col gap-2 mt-2 px-1";
+            container.innerHTML = '';
+            history.slice(0, 3).forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = "w-full px-3 py-2 rounded-lg text-[10px] font-mono bg-stone-300 dark:bg-stone-800/50 hover:bg-orange-100 dark:hover:bg-orange-900/20 text-stone-600 dark:text-stone-400 hover:text-orange-600 dark:hover:text-orange-400 truncate border border-transparent hover:border-orange-200 dark:hover:border-orange-900/50 transition-all text-left";
+                btn.textContent = item;
+                btn.title = item;
+                btn.onclick = () => {
+                    if (type === 'neg') {
+                        document.getElementById('input-neg').value = item;
+                        setEditNegative(item);
+                    } else {
+                        document.getElementById('input-full').value = item;
+                        setEditContent(item);
+                    }
+                    markDirty();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // --- 5. LOGIC ACTIONS ---
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const text = document.getElementById('toast-message');
+            text.textContent = msg;
+            container.classList.remove('opacity-0', '-translate-y-4');
+            setTimeout(() => {
+                container.classList.add('opacity-0', '-translate-y-4');
+            }, 3000);
+        }
+
+        function toggleDesktopSidebar() {
+            // Logic for visual toggle via CSS classes
+            isSidebarCollapsed = !isSidebarCollapsed;
+            const sidebar = document.getElementById('sidebar');
+            const headerExp = document.getElementById('sidebar-header-expanded');
+            const headerCol = document.getElementById('sidebar-header-collapsed');
+            const btnNew = document.getElementById('btn-new-prompt');
+            const labelNew = document.getElementById('label-new-prompt');
+            const filters = document.getElementById('sidebar-filters');
+            const footerActions = document.getElementById('footer-actions');
+            const footerCredits = document.getElementById('footer-credit');
+            const sidebarHandleIcon = document.getElementById('icon-sidebar-handle');
+            
+            if (isSidebarCollapsed) {
+                // Collapse
+                sidebar.classList.remove('w-80');
+                sidebar.classList.add('w-20');
+                
+                headerExp.classList.add('hidden');
+                headerCol.classList.remove('hidden');
+                headerCol.classList.add('flex');
+                
+                labelNew.classList.add('hidden'); // Hide text "New Prompt"
+                // Keep button visible but small? No, design swaps layout
+                
+                filters.classList.add('hidden');
+                
+                document.getElementById('btn-lang').classList.remove('flex-1');
+                document.getElementById('btn-lang').classList.add('w-10');
+                
+                // Adjust footer buttons size
+                const footerBtns = document.querySelectorAll('.footer-btn');
+                footerBtns.forEach(btn => {
+                    btn.classList.remove('h-10');
+                    btn.classList.add('h-8');
+                });
+                
+                footerActions.classList.remove('flex-col', 'items-center', 'gap-2');
+                footerActions.classList.add('flex-row', 'gap-2');
+                
+                // Credits hidden in collapsed state for simplicity or can adjust
+                
+                sidebarHandleIcon.setAttribute('data-lucide', 'chevron-right');
+            } else {
+                // Expand
+                sidebar.classList.add('w-80');
+                sidebar.classList.remove('w-20');
+                
+                headerExp.classList.remove('hidden');
+                headerCol.classList.add('hidden');
+                headerCol.classList.remove('flex');
+                
+                labelNew.classList.remove('hidden');
+                
+                filters.classList.remove('hidden');
+                
+                document.getElementById('btn-lang').classList.add('flex-1');
+                document.getElementById('btn-lang').classList.remove('w-10');
+                
+                const footerBtns = document.querySelectorAll('.footer-btn');
+                footerBtns.forEach(btn => {
+                    btn.classList.remove('h-8');
+                    btn.classList.add('h-10');
+                });
+                
+                footerActions.classList.remove('flex-col', 'items-center', 'gap-2');
+                footerActions.classList.add('flex-row', 'gap-2');
+                
+                sidebarHandleIcon.setAttribute('data-lucide', 'chevron-left');
+            }
+            renderSidebar(); // Re-render content to adjust badges/truncation
+            lucide.createIcons();
+        }
+        
+        // Mobile Overlay Functions
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            sidebar.classList.remove('mobile-closed');
+            sidebar.classList.add('mobile-open');
+            backdrop.classList.remove('hidden');
+        }
+        
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('mobile-backdrop');
+            sidebar.classList.add('mobile-closed');
+            sidebar.classList.remove('mobile-open');
+            backdrop.classList.add('hidden');
+        }
+        
+        function goBackToList() {
+            mobileView = 'list';
+            handleMobileBack();
+        }
+
+        function openConfirm(title, message, callback) {
+            document.getElementById('confirm-title').innerText = title || "Confirm";
+            document.getElementById('confirm-message').innerText = message || "Are you sure?";
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirm() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        function onConfirmClick() {
+            if (confirmCallback) confirmCallback();
+            closeConfirm();
+        }
+
+        function openWelcome() {
+            document.getElementById('modal-welcome').classList.remove('hidden');
+        }
+        
+        function closeWelcome() {
+            document.getElementById('modal-welcome').classList.add('hidden');
+            localStorage.setItem('vivv_welcome_seen_070', 'true');
+        }
+        
+        function openHotkeysModal() {
+            document.getElementById('modal-hotkeys').classList.remove('hidden');
+        }
+        
+        function closeHotkeysModal() {
+            document.getElementById('modal-hotkeys').classList.add('hidden');
+        }
+        
+        function openStorageModal(action) {
+            storageAction = action;
+            const t = action === 'export' ? 'Export Data' : 'Import Data';
+            document.getElementById('storage-title').textContent = t;
+            document.getElementById('modal-storage').classList.remove('hidden');
+        }
+        
+        function closeStorageModal() {
+            document.getElementById('modal-storage').classList.add('hidden');
+            storageAction = null;
+        }
+        
+        function handleStorageAction(type) {
+            closeStorageModal();
+            if (type === 'local') {
+                if (storageAction === 'export') exportData();
+                else document.getElementById('file-upload').click();
+            } else {
+                // Google Drive placeholder
+                alert("Google Drive integration requires a Google Cloud Project with the Drive API enabled and an OAuth 2.0 Client ID. This cannot be securely embedded in a static HTML file without backend configuration. Please use Local storage.");
+            }
+        }
+
+        function handleDelete() {
+            const t = TRANSLATIONS[currentLang];
+            openConfirm(t.confirmTitle, t.confirmMsg, async () => {
+                if (isDraft) {
+                    isDraft = false; 
+                    selectedPromptId = null; 
+                    showMobileList(); 
+                    isDirty = false;
+                    return;
+                }
+                
+                // LOCAL STORAGE DELETE
+                prompts = prompts.filter(p => p.id !== selectedPromptId);
+                localStorage.setItem('vivv_prompts', JSON.stringify(prompts));
+                
+                // Remove versions too
+                let allVersions = JSON.parse(localStorage.getItem('vivv_versions') || '[]');
+                allVersions = allVersions.filter(v => v.promptId !== selectedPromptId);
+                localStorage.setItem('vivv_versions', JSON.stringify(allVersions));
+                
+                selectedPromptId = null; 
+                showMobileList();
+                renderSidebar();
+            });
+        }
+
+        function handleStartNew() {
+            // CHECK PROMPT LIMIT (Max 2)
+            if (prompts.length >= 2) {
+                showToast("Thank you for testing VIVV 0.7. A stable version is coming soon!");
+                return;
+            }
+
+            if (isDirty) {
+                openConfirm("Unsaved Changes", "Discard unsaved changes?", () => {
+                    executeStartNew();
+                });
+            } else {
+                executeStartNew();
+            }
+        }
+
+        function executeStartNew() {
+            selectedPromptId = null;
+            isDraft = true;
+            isDirty = false;
+            appMode = 'img'; // UPDATED: Default to Image Mode
+            vidSubMode = 'txt';
+            showNegative = false;
+            
+            document.getElementById('input-title').value = '';
+            document.getElementById('input-full').value = '';
+            document.getElementById('input-neg').value = '';
+            document.getElementById('input-note').value = '';
+            
+            // Initialize formState for Image Mode immediately
+            formState = {};
+            CATEGORIES_IMG.forEach(c => formState[c] = '');
+            
+            mobileView = 'detail';
+            document.getElementById('form-grid').innerHTML = ''; // Will be re-rendered by updateUI -> renderParameters
+            
+            // Close sidebar on mobile selection
+            if(window.innerWidth < 768) {
+                closeMobileSidebar();
+            }
+            updateUI();
+            
+            // Auto Focus Logic
+            setTimeout(() => {
+                document.getElementById('input-title').focus();
+            }, 100);
+        }
+        
+        // NEW: Title Enter Key Handler
+        function handleTitleKey(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (appMode === 'free') {
+                    document.getElementById('input-full').focus();
+                } else {
+                    // Try to focus the first textarea in the form grid
+                    const firstParam = document.querySelector('#form-grid textarea');
+                    if (firstParam) {
+                        firstParam.focus();
+                    } else {
+                        // Fallback if form not ready or empty
+                        document.getElementById('input-full').focus();
+                    }
+                }
+            }
+        }
+        
+        // NEW: Note Field Enter Key Handler
+        function handleNoteKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSaveClick();
+            }
+        }
+
+        function handleDiscardOrClose() {
+            if (isDraft) {
+                // If it was a new draft, just close and reset
+                handleMobileBack(); // effectively clears selection and returns to empty/list state
+            } else {
+                // Existing prompt
+                if (isDirty) {
+                    openConfirm("Unsaved Changes", "Discard changes and close?", () => {
+                        handleMobileBack();
+                    });
+                } else {
+                    handleMobileBack();
+                }
+            }
+        }
+
+        function handleMobileBack() {
+            selectedPromptId = null; 
+            isDraft = false; 
+            isDirty = false;
+            mobileView = 'list';
+            updateUI();
+        }
+        
+        function showMobileList() {
+            handleMobileBack();
+        }
+
+        // --- UPDATED LOAD FUNCTIONS (LOCALSTORAGE) ---
+        function loadPrompts() {
+            const data = localStorage.getItem('vivv_prompts');
+            if (data) {
+                try {
+                    prompts = JSON.parse(data);
+                    // Sort descending by date
+                    prompts.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                } catch(e) { console.error("Corrupt prompt data", e); prompts = []; }
+            } else {
+                prompts = [];
+            }
+            renderSidebar();
+        }
+
+        function loadSnippets() {
+            const data = localStorage.getItem('vivv_snippets');
+            if (data) {
+                try {
+                    snippets = JSON.parse(data);
+                } catch(e) { snippets = []; }
+            } else {
+                snippets = [];
+            }
+        }
+
+        function selectPrompt(id) {
+            const proceed = () => {
+                selectedPromptId = id;
+                const p = prompts.find(x => x.id === id);
+                if (!p) return;
+
+                isDraft = false;
+                isDirty = false;
+                
+                document.getElementById('input-title').value = p.title;
+                document.getElementById('input-full').value = p.currentContent;
+                document.getElementById('input-neg').value = p.currentNegative || '';
+                
+                // Sync Model
+                currentModel = p.model || 'Grok';
+                document.getElementById('select-model').value = currentModel;
+                document.getElementById('current-model-text').textContent = currentModel;
+                
+                appMode = p.mode || 'free';
+                if (p.vidSubMode) vidSubMode = p.vidSubMode;
+                formState = p.formState || {};
+                showNegative = !!p.currentNegative;
+
+                mobileView = 'detail';
+                document.getElementById('form-grid').innerHTML = '';
+                
+                // Close sidebar on mobile selection
+                if(window.innerWidth < 768) {
+                   closeMobileSidebar();
+                }
+                
+                updateUI();
+            };
+
+            if (isDirty) {
+                openConfirm("Unsaved Changes", "Discard unsaved changes?", proceed);
+            } else {
+                proceed();
+            }
+        }
+
+        function markDirty() {
+            isDirty = true;
+            updateStatusIndicator();
+        }
+
+        function setEditContent(val) {
+            document.getElementById('input-full').value = val;
+        }
+        
+        function setEditNegative(val) {
+            document.getElementById('input-neg').value = val;
+        }
+
+        function handleFullPromptKey(e) {
+            // If Enter (without Shift) is pressed, copy to clipboard
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                copyText('full');
+            }
+        }
+        
+        function handleNegPromptKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                copyText('neg');
+            }
+        }
+
+        function handleParamKey(e, index, total) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const nextIndex = index + 1;
+                if (nextIndex < total) {
+                    const inputs = document.querySelectorAll('#form-grid textarea');
+                    if (inputs[nextIndex]) {
+                        inputs[nextIndex].focus();
+                    }
+                } else {
+                    handleCombine();
+                }
+            }
+        }
+
+        function updateParam(cat, val) {
+            formState[cat] = val;
+            markDirty();
+        }
+
+        function clearParam(cat) {
+            formState[cat] = '';
+            const el = document.getElementById(`param-${cat}`);
+            if(el) el.value = '';
+            markDirty();
+        }
+
+        function handleSaveSnippet(cat) {
+            const text = formState[cat];
+            if (!text || !text.trim()) return;
+            
+            const newSnippet = {
+                id: 'snip_' + Date.now(),
+                category: cat,
+                text: text.trim(),
+                createdAt: new Date().toISOString()
+            };
+            
+            snippets.unshift(newSnippet);
+            localStorage.setItem('vivv_snippets', JSON.stringify(snippets));
+            showToast("Snippet Saved");
+        }
+
+        function renderSnippetModal(cat) {
+            snippetCategory = cat;
+            document.getElementById('modal-snip-title').textContent = cat;
+            const list = document.getElementById('modal-snip-content');
+            list.innerHTML = '';
+            
+            const catsSnippets = snippets.filter(s => s.category === cat);
+            
+            if (catsSnippets.length === 0) {
+                list.innerHTML = `<div class="text-center text-stone-400 py-8 text-sm">${TRANSLATIONS[currentLang].emptySnippets}</div>`;
+            } else {
+                catsSnippets.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = "group flex justify-between items-center w-full p-3 mb-1 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 cursor-pointer";
+                    div.onclick = () => {
+                        formState[cat] = s.text;
+                        const el = document.getElementById(`param-${cat}`);
+                        if(el) el.value = s.text;
+                        markDirty();
+                        closeModalSnippets();
+                    };
+                    
+                    div.innerHTML = `
+                        <span class="text-xs font-mono text-stone-600 dark:text-stone-400 truncate flex-1">${s.text}</span>
+                        <button onclick="deleteSnippet('${s.id}', event)" class="p-1 text-stone-400 hover:text-red-500"><i data-lucide="trash-2" width="14"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+            lucide.createIcons();
+            document.getElementById('modal-snippets').classList.remove('hidden');
+        }
+
+        function deleteSnippet(id, e) {
+            e.stopPropagation();
+            if(confirm("Delete snippet?")) {
+                snippets = snippets.filter(s => s.id !== id);
+                localStorage.setItem('vivv_snippets', JSON.stringify(snippets));
+                e.target.closest('.group').remove();
+            }
+        }
+
+        function closeModalSnippets() {
+            document.getElementById('modal-snippets').classList.add('hidden');
+            snippetCategory = null;
+        }
+
+        function handleCombine() {
+            let cats = [];
+            if (appMode === 'img') cats = CATEGORIES_IMG;
+            else cats = vidSubMode === 'txt' ? CATEGORIES_VID_TXT : CATEGORIES_VID_IMG;
+            
+            const sep = autoComma ? ', ' : ' ';
+            const txt = cats.map(c => formState[c]?.trim()).filter(Boolean).join(sep);
+            
+            document.getElementById('input-full').value = txt;
+            addToHistory(txt, 'form');
+            markDirty();
+            
+            // UPDATED: Auto-scroll to full prompt
+            if (appMode !== 'free') {
+                 document.getElementById('full-prompt-container').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function handleScramble() {
+            let cats = [];
+            if (appMode === 'img') cats = CATEGORIES_IMG;
+            else cats = vidSubMode === 'txt' ? CATEGORIES_VID_TXT : CATEGORIES_VID_IMG;
+            
+            let values = cats.map(c => formState[c]?.trim()).filter(Boolean);
+            for (let i = values.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [values[i], values[j]] = [values[j], values[i]];
+            }
+            const txt = values.join(autoComma ? ', ' : ' ');
+            document.getElementById('input-full').value = txt;
+            addToHistory(txt, 'form');
+            markDirty();
+        }
+
+        function addToHistory(text, type) {
+            if (!text) return;
+            const target = type === 'negative' ? localHistory.neg : (type === 'free' ? localHistory.full : localHistory.form);
+            // Add to front
+            if (target.indexOf(text) !== -1) {
+                 // Remove existing duplicate
+                 target.splice(target.indexOf(text), 1);
+            }
+            target.unshift(text);
+            if (target.length > 50) target.pop();
+            
+            renderTabs(type === 'negative' ? 'neg' : 'full', target);
+        }
+
+        function copyText(type) {
+            incrementStat('copies'); // UPDATED: Use new function
+            const el = document.getElementById(type === 'full' ? 'input-full' : 'input-neg');
+            el.select();
+            document.execCommand('copy');
+            
+            const t = TRANSLATIONS[currentLang];
+            const btn = document.getElementById(type === 'full' ? 'btn-copy-full' : 'btn-copy-neg');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="check" width="12"></i> ${t.copied}`;
+            lucide.createIcons();
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                lucide.createIcons();
+            }, 2000);
+            
+            addToHistory(el.value, type === 'full' ? (appMode === 'free' ? 'free' : 'form') : 'negative');
+        }
+
+        function clearText(type) {
+            const el = document.getElementById(type === 'full' ? 'input-full' : 'input-neg');
+            if (el.value.trim()) {
+                addToHistory(el.value, type === 'full' ? (appMode === 'free' ? 'free' : 'form') : 'negative');
+            }
+            el.value = '';
+            markDirty();
+        }
+
+        function handleSaveClick() {
+            // No user check needed for localstorage
+            incrementStat('saves'); // UPDATED: Use new function
+            
+            let title = document.getElementById('input-title').value.trim();
+            
+            // Auto-Generate "Unnamed X" title if empty
+            if (!title) {
+                const unnamedPrompts = prompts.filter(p => p.title && p.title.startsWith('Unnamed '));
+                let nextNum = 1;
+                if (unnamedPrompts.length > 0) {
+                    const nums = unnamedPrompts.map(p => {
+                        const match = p.title.match(/Unnamed (\d+)/);
+                        return match ? parseInt(match[1]) : 0;
+                    }).filter(n => !isNaN(n));
+                    if (nums.length > 0) nextNum = Math.max(...nums) + 1;
+                }
+                title = `Unnamed ${nextNum}`;
+                document.getElementById('input-title').value = title; 
+            }
+            
+            const content = document.getElementById('input-full').value;
+            const negative = document.getElementById('input-neg').value;
+            const model = currentModel;
+            const note = document.getElementById('input-note').value;
+
+            // Updated LocalStorage logic
+            if (isDraft || !selectedPromptId) {
+                // Double check limit
+                if (prompts.length >= 2) {
+                     showToast("Thank you for testing VIVV 0.7. A stable version is coming soon!");
+                     return;
+                }
+                
+                const newId = 'prompt_' + Date.now();
+                const newPrompt = {
+                    id: newId,
+                    title, currentContent: content, currentNegative: negative, model,
+                    mode: appMode, vidSubMode, formState, 
+                    updatedAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
+                    versionCount: 1
+                };
+                
+                prompts.unshift(newPrompt);
+                selectedPromptId = newId;
+                
+                // Add Version
+                saveVersionToLocal(newId, content, negative, model, formState, 1, note || 'Initial', appMode, vidSubMode);
+            } else {
+                const index = prompts.findIndex(p => p.id === selectedPromptId);
+                if (index !== -1) {
+                    const currentP = prompts[index];
+                    const newV = (currentP.versionCount || 0) + 1;
+                    
+                    prompts[index] = {
+                        ...currentP,
+                        title, currentContent: content, currentNegative: negative, model,
+                        mode: appMode, vidSubMode, formState,
+                        updatedAt: new Date().toISOString(),
+                        versionCount: newV
+                    };
+                    
+                    // Move to top
+                    prompts.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+                    
+                    saveVersionToLocal(selectedPromptId, content, negative, model, formState, newV, note || 'Updated', appMode, vidSubMode);
+                }
+            }
+
+            localStorage.setItem('vivv_prompts', JSON.stringify(prompts));
+            isDraft = false;
+            isDirty = false;
+            document.getElementById('input-note').value = '';
+            renderSidebar(); // Update UI
+            updateUI();
+        }
+        
+        function saveVersionToLocal(pid, content, negative, model, formState, vNum, note, mode, vidSubMode) {
+            let versions = JSON.parse(localStorage.getItem('vivv_versions') || '[]');
+            versions.push({
+                id: 'ver_' + Date.now(),
+                promptId: pid,
+                content, negative, model, formState, 
+                versionNumber: vNum, 
+                changeNote: note, 
+                createdAt: new Date().toISOString(), 
+                mode, vidSubMode
+            });
+            localStorage.setItem('vivv_versions', JSON.stringify(versions));
+        }
+
+        // NEW: Show cache modal logic
+        function showHistory(type) {
+            const list = document.getElementById('modal-hist-content');
+            list.innerHTML = '';
+            
+            // Determine which history to show
+            let source = [];
+            let title = "Cache";
+            
+            if (type === 'neg') {
+                source = localHistory.neg;
+                title = "Negative Cache";
+            } else {
+                // For full prompt, decide between form-based or freestyle based on current mode
+                source = appMode === 'free' ? localHistory.full : localHistory.form;
+                title = appMode === 'free' ? "Freestyle Cache" : "Generated Cache";
+            }
+
+            document.getElementById('modal-hist-title').innerHTML = `<i data-lucide="history" width="18" class="text-orange-500"></i> ${title}`;
+
+            if (source.length === 0) {
+                 list.innerHTML = `<div class="text-center text-stone-400 py-8 text-sm">${TRANSLATIONS[currentLang].emptyHistory}</div>`;
+            } else {
+                source.forEach((item, idx) => {
+                    const div = document.createElement('div');
+                    div.className = "group flex flex-col w-full p-3 mb-1 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 cursor-pointer border-b border-stone-200 dark:border-stone-800 last:border-0";
+                    div.onclick = () => {
+                        if (type === 'neg') {
+                            document.getElementById('input-neg').value = item;
+                        } else {
+                            document.getElementById('input-full').value = item;
+                        }
+                        markDirty();
+                        closeModalHistory();
+                    };
+                    // UPDATED: Added Numbering (idx + 1)
+                    div.innerHTML = `<div class="flex gap-3">
+                        <span class="text-xs font-bold text-stone-400 select-none">${idx + 1}.</span>
+                        <div class="text-xs font-mono text-stone-600 dark:text-stone-300 line-clamp-3">${item}</div>
+                    </div>`;
+                    list.appendChild(div);
+                });
+            }
+            
+            document.getElementById('modal-history').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModalHistory() {
+            document.getElementById('modal-history').classList.add('hidden');
+        }
+
+        function toggleHistoryPanel() {
+            const panel = document.getElementById('history-panel');
+            if (panel.classList.contains('translate-x-full')) {
+                panel.classList.remove('translate-x-full');
+                loadVersions(selectedPromptId);
+            } else {
+                panel.classList.add('translate-x-full');
+            }
+        }
+
+        function loadVersions(pid) {
+            const list = document.getElementById('version-list');
+            list.innerHTML = '';
+            if (!pid) return;
+            
+            let allVersions = JSON.parse(localStorage.getItem('vivv_versions') || '[]');
+            const sortedDocs = allVersions.filter(v => v.promptId === pid).sort((a, b) => b.versionNumber - a.versionNumber);
+            currentLoadedVersions = sortedDocs;
+
+            if (sortedDocs.length === 0) {
+                list.innerHTML = '<div class="text-center text-stone-500 text-xs mt-4">No versions saved.</div>';
+                return;
+            }
+
+            sortedDocs.forEach((v, index) => {
+                const div = document.createElement('div');
+                div.className = "p-4 rounded-xl border bg-stone-50 dark:bg-stone-800/50 border-stone-300 dark:border-stone-700";
+                
+                // Using a safe timestamp display
+                let timeStr = "";
+                if (v.createdAt) {
+                    timeStr = new Date(v.createdAt).toLocaleString();
+                }
+                
+                const noteDisplay = v.changeNote ? `<div class="text-xs font-bold text-stone-700 dark:text-stone-200 mt-1">"${v.changeNote}"</div>` : '';
+
+                div.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-stone-200 dark:bg-stone-700 text-stone-500 w-fit">v${v.versionNumber}</span>
+                        <span class="text-[9px] text-stone-400 mt-1">${timeStr}</span>
+                        ${noteDisplay}
+                    </div>
+                    <div class="flex flex-col gap-1 items-end">
+                        <button onclick="restoreVersion(${index})" class="text-xs font-bold text-emerald-600 hover:text-emerald-500 hover:underline">Restore</button>
+                        <button onclick="window.deleteVersion('${v.id}', event)" class="text-xs text-red-400 hover:text-red-500 hover:underline mt-1">Delete</button>
+                    </div>
+                </div>
+                <div class="text-xs font-mono text-stone-600 dark:text-stone-300 line-clamp-3 bg-stone-100 dark:bg-black/30 p-2 rounded">${v.content}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+        
+        // Restore full state from the version object
+        function restoreVersion(index) {
+            const v = currentLoadedVersions[index];
+            if(!v) return;
+
+            appMode = v.mode || 'free'; 
+            vidSubMode = v.vidSubMode || 'txt';
+            formState = v.formState || {};
+            showNegative = !!v.negative; 
+            currentModel = v.model || 'Grok'; 
+
+            document.getElementById('input-full').value = v.content || '';
+            document.getElementById('input-neg').value = v.negative || '';
+            
+            document.getElementById('current-model-text').textContent = currentModel;
+            document.getElementById('select-model').value = currentModel;
+
+            document.getElementById('mode-dropdown').classList.add('hidden');
+            document.getElementById('model-dropdown').classList.add('hidden');
+            
+            updateUI(); 
+            
+            if (appMode !== 'free') {
+                renderParameters(); 
+            } else {
+                document.getElementById('form-grid').innerHTML = '';
+            }
+
+            markDirty();
+            toggleHistoryPanel(); 
+        }
+        
+        // --- UPDATED DELETE FUNCTION ---
+        window.deleteVersion = function(versionId, e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            openConfirm("Delete Version", "Are you sure you want to delete this version history entry?", () => {
+                let allVersions = JSON.parse(localStorage.getItem('vivv_versions') || '[]');
+                allVersions = allVersions.filter(v => v.id !== versionId);
+                localStorage.setItem('vivv_versions', JSON.stringify(allVersions));
+                loadVersions(selectedPromptId);
+            });
+        };
+
+        function exportData() {
+            const dataStr = JSON.stringify(prompts);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = 'vivv_backup.json';
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        function toggleLang() {
+            currentLang = currentLang === 'en' ? 'th' : 'en';
+            applyTranslations();
+        }
+        
+        function handleSearch(val) {
+            searchTerm = val;
+            renderSidebar();
+        }
+        
+        function setFilter(f) {
+            currentFilter = f;
+            // update UI buttons
+            ['all', 'free', 'img', 'vid'].forEach(id => {
+                const btn = document.getElementById(`filter-${id}`);
+                if (id === f) {
+                    btn.className = "flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all bg-white dark:bg-stone-800 shadow-sm text-stone-900 dark:text-white";
+                } else {
+                    btn.className = "flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase transition-all text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-600";
+                }
+            });
+            renderSidebar();
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data && data.length) {
+                        // Merge with existing local
+                        prompts = [...prompts, ...data];
+                        localStorage.setItem('vivv_prompts', JSON.stringify(prompts));
+                        alert(TRANSLATIONS[currentLang].importSuccess);
+                        renderSidebar();
+                    }
+                } catch(err) {
+                    console.error(err);
+                    alert("Failed to parse file.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 7. MISSING FUNCTIONS RESTORED ---
+        
+        function setAppMode(m) {
+            appMode = m;
+            document.getElementById('mode-dropdown').classList.add('hidden');
+            if (m === 'free') formState = {}; 
+            else if (Object.keys(formState).length === 0) {
+                const cats = m === 'img' ? CATEGORIES_IMG : CATEGORIES_VID_TXT;
+                cats.forEach(c => formState[c] = '');
+            }
+            document.getElementById('form-grid').innerHTML = '';
+            updateUI();
+        }
+
+        function setSubMode(sm) {
+            vidSubMode = sm;
+            formState = {}; 
+            document.getElementById('form-grid').innerHTML = '';
+            updateUI();
+        }
+
+        function toggleModeSelector() {
+            document.getElementById('mode-dropdown').classList.toggle('hidden');
+            // Z-index management for dropdown overlay
+            if (!document.getElementById('mode-dropdown').classList.contains('hidden')) {
+                 document.getElementById('mode-select-container').style.zIndex = '50';
+                 document.getElementById('model-select-container').style.zIndex = '20';
+            } else {
+                 document.getElementById('mode-select-container').style.zIndex = '20';
+            }
+        }
+        
+        function toggleModelSelector() {
+            document.getElementById('model-dropdown').classList.toggle('hidden');
+             // Z-index management
+            if (!document.getElementById('model-dropdown').classList.contains('hidden')) {
+                 document.getElementById('model-select-container').style.zIndex = '50';
+                 document.getElementById('mode-select-container').style.zIndex = '20';
+            } else {
+                 document.getElementById('model-select-container').style.zIndex = '20';
+            }
+        }
+
+        function toggleNegative() {
+            showNegative = !showNegative;
+            updateUI();
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        function toggleAutoComma() {
+            autoComma = !autoComma;
+            const btn = document.getElementById('btn-comma');
+            if (autoComma) btn.className = "w-12 h-12 flex items-center justify-center rounded-xl border-2 font-black text-xl transition-all border-emerald-500 text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20";
+            else btn.className = "w-12 h-12 flex items-center justify-center rounded-xl border-2 font-black text-xl transition-all border-stone-200 text-stone-300 dark:border-stone-800 dark:text-stone-600";
+        }
+
+        function clearForm() {
+            openConfirm("Clear Fields", "Clear all parameter fields?", () => {
+                formState = {};
+                renderParameters();
+                markDirty();
+            });
+        }
+
+        function handleOpenExternal() {
+            const m = currentModel;
+            const url = MODEL_URLS[m] || `https://www.google.com/search?q=${encodeURIComponent(m + " image generator")}`;
+            window.open(url, '_blank');
+        }
+        
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const text = document.getElementById('toast-message');
+            text.textContent = msg;
+            container.classList.remove('opacity-0', '-translate-y-4');
+            setTimeout(() => {
+                container.classList.add('opacity-0', '-translate-y-4');
+            }, 3000);
+        }
+
+        // Initialize
+        window.onload = initApp;
+
+        // Helper for confirmSave
+        function confirmSave(type) {
+            if (type === 'new') {
+                if (isDraft) {
+                    handleSaveClick();
+                } else {
+                    handleSaveClick();
+                }
+            } else {
+                 handleSaveClick();
+            }
+        }
+
+    </script>
+</body>
+</html>
+
+
